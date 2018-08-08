@@ -47,6 +47,9 @@ class crlf_tcp(object):
         while True:
             try:
                 self.socket.connect((self.host, self.port))
+            except socket.gaierror:
+                print 'temporary failure in name resolution for %s' % self.host
+                time.sleep(60)
             except socket.timeout:
                 print 'timed out connecting to %s:%s' % (self.host, self.port)
                 time.sleep(60)
