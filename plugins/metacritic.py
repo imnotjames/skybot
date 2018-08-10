@@ -48,8 +48,6 @@ def metacritic(inp):
 
     url = 'http://www.metacritic.com/search/%s/%s/results' % (cat, title_safe)
 
-    print(url)
-
     try:
         doc = http.get_html(url)
     except HTTPError:
@@ -76,7 +74,7 @@ def metacritic(inp):
 
             # if the result_type div has a platform div, get that one
             platform_div = result_type[0].find_class('platform')
-            if platform_div:
+            if platform_div is not None:
                 plat = platform_div[0].text_content().strip()
             else:
                 # otherwise, use the result_type text_content
