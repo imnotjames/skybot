@@ -14,7 +14,6 @@ class TestDice(TestCase):
 
         assert expected == actual
 
-    @skip('skip until https://github.com/rmmh/skybot/pull/187 is merged')
     @patch('random.randint')
     def test_complex_roll(self, mock_random_randint):
         mock_random_randint.side_effect = iter([1, 2, 3])
