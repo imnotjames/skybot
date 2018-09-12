@@ -24,7 +24,7 @@ def sieve_suite(bot, input, func, kind, args):
         return None
 
     acls = bot.config.get('acls', {})
-    for acl in [acls.get(func.__name__), acls.get(input.chan), acls.get(input.conn.server)]:
+    for acl in [acls.get(func.__name__), acls.get(input.chan), acls.get(input.server)]:
         if acl is None:
             continue
         if 'deny-except' in acl:
