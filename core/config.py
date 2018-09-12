@@ -44,10 +44,10 @@ if not os.path.exists(find_config()):
         }''') + '\n')
 
 
-def config():
+def config(bot):
     # reload config from file if file has changed
     config_mtime = os.stat(find_config()).st_mtime
-    if bot._config_mtime != config_mtime:
+    if not hasattr(bot, '_config_mtime') or bot._config_mtime != config_mtime:
         try:
             bot.config = json.load(open(find_config()))
             bot._config_mtime = config_mtime
@@ -61,6 +61,3 @@ def config():
                         bot.conns[name] = IRC(conf)
         except ValueError, e:
             print 'ERROR: malformed config!', e
-
-
-bot._config_mtime = 0

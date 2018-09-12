@@ -32,7 +32,7 @@ def main():
     print 'Connecting to IRC'
 
     try:
-        config()
+        config(bot)
         if not hasattr(bot, 'config'):
             exit()
     except Exception, e:
@@ -44,7 +44,7 @@ def main():
 
     while True:
         reload()  # these functions only do things
-        config()  # if changes have occured
+        config(bot)  # if changes have occured
 
         for conn in bot.conns.itervalues():
             try:
