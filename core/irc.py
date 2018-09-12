@@ -13,16 +13,21 @@ def decode(txt):
             return txt.decode(codec)
         except UnicodeDecodeError:
             continue
+
     return txt.decode('utf-8', 'ignore')
 
 
-def censor(text):
-    text = text.replace('\n', '').replace('\r', '')
-    replacement = '[censored]'
-    if 'censored_strings' in bot.config:
-        words = map(re.escape, bot.config['censored_strings'])
-        regex = re.compile('(%s)' % "|".join(words))
-        text = regex.sub(replacement, text)
+def censor(text, censored_strings = None):
+    text = re.sub("[\n\r]+", " ", text)
+
+    if not censored_strings:
+        return text
+
+    words = map(re.escape, censored_strings)
+    pattern = "(%s)" % "|".join(words)
+
+    text = re.sub(pattern, "[censored]", text)
+
     return text
 
 
@@ -167,6 +172,7 @@ class IRC(object):
 
     def set_conf(self, conf):
         self.conf = conf
+        self.censored_strings = self.conf.get('censored_strings', [])
         self.nick = self.conf['nick']
         self.server = self.conf['server']
         if self.conn is not None:
@@ -225,7 +231,10 @@ class IRC(object):
     def cmd(self, command, params=None):
         if params:
             params[-1] = ':' + params[-1]
-            self.send(command + ' ' + ' '.join(map(censor, params)))
+
+            params = [censor(p, self.censored_strings) for p in params]
+
+            self.send(command + ' ' + ' '.join(params))
         else:
             self.send(command)
 
