@@ -27,7 +27,7 @@ def main():
     eval(compile(open(os.path.join('core', 'reload.py'), 'U').read(),
                  os.path.join('core', 'reload.py'), 'exec'),
          globals())
-    reload(init=True)
+    bot_reload(init=True)
 
     print 'Connecting to IRC'
 
@@ -43,7 +43,7 @@ def main():
     print 'Running main loop'
 
     while True:
-        reload()  # these functions only do things
+        bot_reload()  # these functions only do things
         config(bot)  # if changes have occured
 
         for conn in bot.conns.itervalues():
