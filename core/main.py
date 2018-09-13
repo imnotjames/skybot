@@ -1,6 +1,9 @@
 import re
 import thread
 import traceback
+from Queue import Queue
+
+from core.db import get_db_connection
 
 
 thread.stack_size(1024 * 512)  # reduce vm size
@@ -8,7 +11,7 @@ thread.stack_size(1024 * 512)  # reduce vm size
 
 class Input(dict):
 
-    def __init__(self, conn, raw, prefix, command, params,
+    def __init__(self, bot, conn, raw, prefix, command, params,
                  nick, user, host, paraml, msg):
 
         chan = paraml[0].lower()
@@ -48,7 +51,7 @@ class Input(dict):
 
         dict.__init__(self, conn=conn, raw=raw, prefix=prefix, command=command,
                       params=params, nick=nick, user=user, host=host,
-                      paraml=paraml, msg=msg, server=conn.server, chan=chan,
+                      paraml=paraml, msg=msg, server=server, chan=chan,
                       notice=notice, say=say, reply=reply, pm=pm, bot=bot,
                       kick=kick, ban=ban, unban=unban, me=me,
                       set_nick=set_nick, lastparam=paraml[-1])
@@ -61,7 +64,7 @@ class Input(dict):
         self[key] = value
 
 
-def run(func, input):
+def run(bot, func, input):
     args = func._args
 
     if 'inp' not in input:
@@ -69,7 +72,7 @@ def run(func, input):
 
     if args:
         if 'db' in args and 'db' not in input:
-            input.db = get_db_connection(input.conn)
+            input.db = get_db_connection(bot.persist_dir, input.conn)
         if 'input' in args:
             input.input = input
         if 0 in args:
@@ -96,9 +99,10 @@ class Handler(object):
 
     '''Runs plugins in their own threads (ensures order)'''
 
-    def __init__(self, func):
+    def __init__(self, bot, func):
+        self.bot = bot
         self.func = func
-        self.input_queue = Queue.Queue()
+        self.input_queue = Queue()
         thread.start_new_thread(self.start, ())
 
     def start(self):
@@ -113,12 +117,12 @@ class Handler(object):
             if uses_db:
                 db = db_conns.get(input.conn)
                 if db is None:
-                    db = bot.get_db_connection(input.conn)
+                    db = get_db_connection(self.bot.persist_dir, input.conn)
                     db_conns[input.conn] = db
                 input.db = db
 
             try:
-                run(self.func, input)
+                run(self.bot, self.func, input)
             except:
                 traceback.print_exc()
 
@@ -129,7 +133,7 @@ class Handler(object):
         self.input_queue.put(value)
 
 
-def dispatch(input, kind, func, args, autohelp=False):
+def dispatch(bot, input, kind, func, args, autohelp=False):
     for sieve, in bot.plugs['sieve']:
         input = do_sieve(sieve, bot, input, func, kind, args)
         if input == None:
@@ -150,11 +154,11 @@ def dispatch(input, kind, func, args, autohelp=False):
     if func._thread:
         bot.threads[func].put(input)
     else:
-        thread.start_new_thread(run, (func, input))
+        thread.start_new_thread(run, (bot, func, input))
 
 
-def match_command(command):
-    commands = list(bot.commands)
+def match_command(commands, command):
+    commands = list(commands)
 
     # do some fuzzy matching
     prefix = filter(lambda x: x.startswith(command), commands)
@@ -187,12 +191,12 @@ def test_make_command_re():
     match = make_command_re(['.', '!'], False, 'bot').match
     assert match('!foo args').groups() == ('foo', 'args')
 
-def main(conn, out):
-    inp = Input(conn, *out)
+def main(bot, conn, out):
+    inp = Input(bot, conn, *out)
 
     # EVENTS
     for func, args in bot.events[inp.command] + bot.events['*']:
-        dispatch(Input(conn, *out), "event", func, args)
+        dispatch(bot, Input(bot, conn, *out), "event", func, args)
 
     if inp.command == 'PRIVMSG':
         # COMMANDS
@@ -204,26 +208,26 @@ def main(conn, out):
 
         if m:
             trigger = m.group(1).lower()
-            command = match_command(trigger)
+            command = match_command(bot.commands, trigger)
 
             if isinstance(command, list):  # multiple potential matches
-                input = Input(conn, *out)
+                input = Input(bot, conn, *out)
                 input.reply("did you mean %s or %s?" %
                             (', '.join(command[:-1]), command[-1]))
             elif command in bot.commands:
-                input = Input(conn, *out)
+                input = Input(bot, conn, *out)
                 input.trigger = trigger
                 input.inp_unstripped = m.group(2)
                 input.inp = input.inp_unstripped.strip()
 
                 func, args = bot.commands[command]
-                dispatch(input, "command", func, args, autohelp=True)
+                dispatch(bot, input, "command", func, args, autohelp=True)
 
         # REGEXES
         for func, args in bot.plugs['regex']:
             m = args['re'].search(inp.lastparam)
             if m:
-                input = Input(conn, *out)
+                input = Input(bot, conn, *out)
                 input.inp = m
 
-                dispatch(input, "regex", func, args)
+                dispatch(bot, input, "regex", func, args)
